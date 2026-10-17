@@ -1,11 +1,11 @@
-package studentManagementSystem;
+package LibraryManagementSystem;
 
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
 public class Main {
     static Scanner scanner = new Scanner(System.in);
-    static studentManagementSystem.StudentService service = new studentManagementSystem.StudentService();
+    static StudentService service = new StudentService();
 
 
     public static void main(String[] args) {

@@ -1,4 +1,4 @@
-package studentManagementSystem;
+package LibraryManagementSystem;
 
 
 @FunctionalInterface

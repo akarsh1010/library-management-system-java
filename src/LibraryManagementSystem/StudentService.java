@@ -1,10 +1,10 @@
-package studentManagementSystem;
+package LibraryManagementSystem;
 
 import java.util.ArrayList;
 import java.util.InputMismatchException;
 
 
-import static studentManagementSystem.Main.scanner;
+import static LibraryManagementSystem.Main.scanner;
 
 public class StudentService {
     ArrayList<Student> students = new ArrayList<>();
@@ -32,13 +32,10 @@ public class StudentService {
         }
 
 
-        int marks = getValidInt("-> Enter the marks : ");
-
-
         System.out.print("-> Enter Branch : ");
         String branch = scanner.nextLine().toUpperCase();
 
-        Student newStudent = new Student(name, rollNo, marks, branch);
+        Student newStudent = new Student(name, rollNo, branch);
         students.add(newStudent);
         System.out.println();
         System.out.println("-> Student saved successfully !! \n");
@@ -57,7 +54,6 @@ public class StudentService {
                 Student student = students.get(i);
                 System.out.println(" Name : " + student.getName()
                         + "\n Roll No : " + student.getRollNo()
-                        + "\n Marks : " + student.getMarks()
                         + "\n Branch : " + student.getBranch());
                 System.out.println();
                 found = true;
@@ -78,7 +74,6 @@ public class StudentService {
             for (Student student : students) {
                 System.out.println(" Name : " + student.getName()
                         + "\n Roll No : " + student.getRollNo()
-                        + "\n Marks : " + student.getMarks()
                         + "\n Branch : " + student.getBranch());
                 System.out.println();
             }

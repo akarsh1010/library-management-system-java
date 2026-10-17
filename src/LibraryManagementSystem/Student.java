@@ -1,16 +1,14 @@
-package studentManagementSystem;
+package LibraryManagementSystem;
 
     public class Student {
 
         private String name;
         private int rollNo;
-        private int marks;
         private String branch;
 
-        public Student(String name, int rollNo, int marks, String branch) {
+        public Student(String name, int rollNo, String branch) {
             this.name = name;
             this.rollNo = rollNo;
-            this.marks = marks;
             this.branch = branch;
         }
 
@@ -20,10 +18,6 @@ package studentManagementSystem;
 
         public int getRollNo() {
             return this.rollNo;
-        }
-
-        public int getMarks() {
-            return this.marks;
         }
 
         public String getBranch() {
