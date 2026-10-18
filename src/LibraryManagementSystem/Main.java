@@ -5,29 +5,21 @@ import java.util.Scanner;
 
 public class Main {
     static Scanner scanner = new Scanner(System.in);
-    static StudentService service = new StudentService();
-
+    static StudentService studentService = new StudentService();
+    static BookService bookService = new BookService();
 
     public static void main(String[] args) {
 
-
-
-        System.out.println("STUDENT MANAGEMENT SYSTEM ");
+        System.out.println("LIBRARY MANAGEMENT SYSTEM ");
         System.out.println("==========================");
         System.out.println();
-
-
 
         while (true) {
             Main.menu();
 
-
             System.out.println("-> Hey welcome :) ");
 
             int choice = 0;
-
-
-
             boolean valid = false;
 
             while (!valid) {
@@ -37,65 +29,89 @@ public class Main {
                     scanner.nextLine();
                     valid = true;
 
-
                 } catch (InputMismatchException e) {
                     scanner.nextLine();
                     System.out.println("-> Invalid choice : ");
                 }
             }
 
-            if (choice == 5) {
+            if (choice == 9) {
                 System.out.println("Thanks for using :) ");
                 break;
             }
 
-
             switch (choice) {
                 case 1 -> {
-
-                    System.out.println("Adding Student :");
-                    System.out.println("--------------\n");
-                    service.addStudent();
+                    System.out.println("Adding Book :");
+                    System.out.println("-------------\n");
+                    bookService.addBook();
                 }
 
                 case 2 -> {
-                    System.out.println("Deleting Student :");
-                    System.out.println("--------------\n");
-                    service.deleteStudent();
+                    System.out.println("Showing All Books :");
+                    System.out.println("-------------------\n");
+                    bookService.showAll();
                 }
 
-                case 3 ->{
-                    System.out.println("Searching :");
-                    System.out.println("--------------\n");
-                    service.searchStudent();
+                case 3 -> {
+                    System.out.println("Searching Book :");
+                    System.out.println("----------------\n");
+                    bookService.searchBook();
                 }
 
                 case 4 -> {
-                    System.out.println("Showing :");
-                    System.out.println("--------------\n");
-                    service.showAll();
+                    System.out.println("Deleting Book :");
+                    System.out.println("---------------\n");
+                    bookService.deleteBook();
+                }
+
+                case 5 -> {
+                    System.out.println("Adding Student :");
+                    System.out.println("----------------\n");
+                    studentService.addStudent();
+                }
+
+                case 6 -> {
+                    System.out.println("Showing All Students :");
+                    System.out.println("----------------------\n");
+                    studentService.showAll();
+                }
+
+                case 7 -> {
+                    System.out.println("Searching Student :");
+                    System.out.println("-------------------\n");
+                    studentService.searchStudent();
+                }
+
+                case 8 -> {
+                    System.out.println("Deleting Student :");
+                    System.out.println("------------------\n");
+                    studentService.deleteStudent();
                 }
 
                 default -> System.out.println("Invalid choice :\n");
             }
         }
-
-
     }
 
     public static void menu() {
-
-
-        System.out.println("======================");
-        System.out.println("         Menu         ");
-        System.out.println("======================");
+        System.out.println("======================================");
+        System.out.println("             Main Menu                ");
+        System.out.println("======================================");
         System.out.println();
-
-        System.out.println("1. Add Student ");
-        System.out.println("2. Delete Student ");
-        System.out.println("3. Search Student ");
-        System.out.println("4. ShowAll Student ");
-        System.out.println("5. Exit :) ");
+        System.out.println("--- BOOK MANAGEMENT ---");
+        System.out.println("1. Add Book ");
+        System.out.println("2. Show All Books ");
+        System.out.println("3. Search Book ");
+        System.out.println("4. Delete Book ");
+        System.out.println();
+        System.out.println("--- STUDENT MANAGEMENT ---");
+        System.out.println("5. Add Student ");
+        System.out.println("6. Show All Students ");
+        System.out.println("7. Search Student ");
+        System.out.println("8. Delete Student ");
+        System.out.println();
+        System.out.println("9. Exit :) ");
         System.out.println();
     }
 }
