@@ -1,5 +1,10 @@
 package LibraryManagementSystem;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -12,10 +17,73 @@ public class BookService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
+    public BookService(StudentService studentService) {
+        loadBooksFromDB(studentService);
+        loadIssueHistoryFromDB();
+    }
+
     public BookService() {
-        books.add(new Book(101, "Java Complete Reference", "Herbert Schildt"));
-        books.add(new Book(102, "Clean Code", "Robert C. Martin"));
-        books.add(new Book(103, "Data Structures & Algorithms", "Mark Allen Weiss"));
+        this(null);
+    }
+
+    public void loadBooksFromDB(StudentService studentService) {
+        books.clear();
+        String sql = "SELECT book_id, title, author, is_issued, issued_branch, issued_year, issued_roll_no, issue_date FROM books";
+        try (Connection conn = DatabaseHelper.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                int bookId = rs.getInt("book_id");
+                String title = rs.getString("title");
+                String author = rs.getString("author");
+                int isIssued = rs.getInt("is_issued");
+                String branch = rs.getString("issued_branch");
+                int year = rs.getInt("issued_year");
+                int rollNo = rs.getInt("issued_roll_no");
+                String issueDate = rs.getString("issue_date");
+
+                Book book = new Book(bookId, title, author);
+                if (isIssued == 1) {
+                    book.setIssued(true);
+                    book.setIssueDate(issueDate);
+                    if (studentService != null) {
+                        Student s = studentService.findStudent(branch, year, rollNo);
+                        book.setIssuedTo(s);
+                    }
+                }
+                books.add(book);
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to load books from database: " + e.getMessage());
+        }
+    }
+
+    public void loadIssueHistoryFromDB() {
+        issueHistory.clear();
+        String sql = "SELECT book_id, book_title, student_name, branch, year, roll_no, phone_number, issue_date, return_date FROM issue_records ORDER BY id ASC";
+        try (Connection conn = DatabaseHelper.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                int bookId = rs.getInt("book_id");
+                String title = rs.getString("book_title");
+                String name = rs.getString("student_name");
+                String branch = rs.getString("branch");
+                int year = rs.getInt("year");
+                int rollNo = rs.getInt("roll_no");
+                String phone = rs.getString("phone_number");
+                String issueDate = rs.getString("issue_date");
+                String returnDate = rs.getString("return_date");
+
+                IssueRecord record = new IssueRecord(bookId, title, name, branch, year, rollNo, phone, issueDate);
+                record.setReturnDate(returnDate);
+                issueHistory.add(record);
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to load issue history from database: " + e.getMessage());
+        }
     }
 
     public void addBook() {
@@ -35,10 +103,23 @@ public class BookService {
         System.out.print("-> Enter Author Name : ");
         String author = scanner.nextLine().trim();
 
+        // Save to SQLite Database
+        String insertSQL = "INSERT INTO books (book_id, title, author, is_issued) VALUES (?, ?, ?, 0)";
+        try (Connection conn = DatabaseHelper.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+            pstmt.setInt(1, bookId);
+            pstmt.setString(2, title);
+            pstmt.setString(3, author);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Failed to save book to database: " + e.getMessage());
+            return;
+        }
+
         Book newBook = new Book(bookId, title, author);
         books.add(newBook);
         System.out.println();
-        System.out.println("-> Book saved successfully !! \n");
+        System.out.println("-> Book saved successfully to database !! \n");
     }
 
     public void searchBook() {
@@ -90,8 +171,20 @@ public class BookService {
                 System.out.println("Cannot delete! This book is currently issued to a student. Return it first.\n");
                 return;
             }
+
+            // Delete from SQLite Database
+            String deleteSQL = "DELETE FROM books WHERE book_id = ?";
+            try (Connection conn = DatabaseHelper.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+                pstmt.setInt(1, bookId);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                System.err.println("Failed to delete book from database: " + e.getMessage());
+                return;
+            }
+
             books.remove(book);
-            System.out.println("Book deleted successfully !! \n");
+            System.out.println("Book deleted successfully from database !! \n");
         } else {
             System.out.println("Book not found !! \n");
         }
@@ -136,11 +229,50 @@ public class BookService {
 
         // Rule 2: Set Issue Date & link to student
         String today = LocalDate.now().format(DATE_FORMATTER);
+
+        // Update in SQLite Database
+        String updateBookSQL = "UPDATE books SET is_issued = 1, issued_branch = ?, issued_year = ?, issued_roll_no = ?, issue_date = ? WHERE book_id = ?";
+        String insertRecordSQL = "INSERT INTO issue_records (book_id, book_title, student_name, branch, year, roll_no, phone_number, issue_date, return_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Currently Issued')";
+
+        try (Connection conn = DatabaseHelper.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement pstmtBook = conn.prepareStatement(updateBookSQL);
+                 PreparedStatement pstmtRecord = conn.prepareStatement(insertRecordSQL)) {
+
+                pstmtBook.setString(1, student.getBranch());
+                pstmtBook.setInt(2, student.getYear());
+                pstmtBook.setInt(3, student.getRollNo());
+                pstmtBook.setString(4, today);
+                pstmtBook.setInt(5, book.getBookId());
+                pstmtBook.executeUpdate();
+
+                pstmtRecord.setInt(1, book.getBookId());
+                pstmtRecord.setString(2, book.getTitle());
+                pstmtRecord.setString(3, student.getName());
+                pstmtRecord.setString(4, student.getBranch());
+                pstmtRecord.setInt(5, student.getYear());
+                pstmtRecord.setInt(6, student.getRollNo());
+                pstmtRecord.setString(7, student.getPhoneNumber());
+                pstmtRecord.setString(8, today);
+                pstmtRecord.executeUpdate();
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                System.err.println("Database transaction failed: " + e.getMessage());
+                return;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.err.println("Database error: " + e.getMessage());
+            return;
+        }
+
         book.setIssued(true);
         book.setIssuedTo(student);
         book.setIssueDate(today);
 
-        // Add to permanent issue history
         IssueRecord record = new IssueRecord(
                 book.getBookId(),
                 book.getTitle(),
@@ -185,7 +317,35 @@ public class BookService {
         String issueDate = book.getIssueDate();
         String returnDate = LocalDate.now().format(DATE_FORMATTER);
 
-        // Update return date in history
+        // Update in SQLite Database
+        String updateBookSQL = "UPDATE books SET is_issued = 0, issued_branch = NULL, issued_year = NULL, issued_roll_no = NULL, issue_date = NULL WHERE book_id = ?";
+        String updateRecordSQL = "UPDATE issue_records SET return_date = ? WHERE book_id = ? AND return_date = 'Currently Issued'";
+
+        try (Connection conn = DatabaseHelper.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement pstmtBook = conn.prepareStatement(updateBookSQL);
+                 PreparedStatement pstmtRecord = conn.prepareStatement(updateRecordSQL)) {
+
+                pstmtBook.setInt(1, book.getBookId());
+                pstmtBook.executeUpdate();
+
+                pstmtRecord.setString(1, returnDate);
+                pstmtRecord.setInt(2, book.getBookId());
+                pstmtRecord.executeUpdate();
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                System.err.println("Database transaction failed: " + e.getMessage());
+                return;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.err.println("Database error: " + e.getMessage());
+            return;
+        }
+
         for (IssueRecord record : issueHistory) {
             if (record.getBookId() == bookId && record.getReturnDate().equals("Currently Issued")) {
                 record.setReturnDate(returnDate);

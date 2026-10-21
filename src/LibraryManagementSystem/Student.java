@@ -32,10 +32,6 @@ package LibraryManagementSystem;
             return this.year;
         }
 
-        public String getPhoneNUmber(){
-            return this.phoneNumber;
-        }
-
         public String getPhoneNumber(){
             return this.phoneNumber;
         }

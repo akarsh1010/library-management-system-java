@@ -5,10 +5,15 @@ import java.util.Scanner;
 
 public class Main {
     static Scanner scanner = new Scanner(System.in);
-    static StudentService studentService = new StudentService();
-    static BookService bookService = new BookService();
+    static StudentService studentService;
+    static BookService bookService;
 
     public static void main(String[] args) {
+        // Initialize SQLite Database and create tables if not exist
+        DatabaseHelper.initializeDatabase();
+
+        studentService = new StudentService();
+        bookService = new BookService(studentService);
 
         System.out.println("LIBRARY MANAGEMENT SYSTEM ");
         System.out.println("==========================");

@@ -1,5 +1,10 @@
 package LibraryManagementSystem;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.InputMismatchException;
 
@@ -9,9 +14,27 @@ public class StudentService {
     ArrayList<Student> students = new ArrayList<>();
 
     public StudentService() {
-        students.add(new Student("RAHUL SHARMA", 12, "BCA", 2, "9876543210"));
-        students.add(new Student("AMAN VERMA", 15, "CSE", 3, "9812345678"));
-        students.add(new Student("PRIYA SINGH", 5, "BCA", 1, "9765432109"));
+        loadStudentsFromDB();
+    }
+
+    public void loadStudentsFromDB() {
+        students.clear();
+        String sql = "SELECT name, branch, year, roll_no, phone_number FROM students";
+        try (Connection conn = DatabaseHelper.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String name = rs.getString("name");
+                String branch = rs.getString("branch");
+                int year = rs.getInt("year");
+                int rollNo = rs.getInt("roll_no");
+                String phone = rs.getString("phone_number");
+                students.add(new Student(name, rollNo, branch, year, phone));
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to load students from database: " + e.getMessage());
+        }
     }
 
     public void addStudent() {
@@ -54,10 +77,25 @@ public class StudentService {
             }
         }
 
+        // Save to SQLite Database
+        String insertSQL = "INSERT INTO students (name, branch, year, roll_no, phone_number) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = DatabaseHelper.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+            pstmt.setString(1, name);
+            pstmt.setString(2, branch);
+            pstmt.setInt(3, year);
+            pstmt.setInt(4, rollNo);
+            pstmt.setString(5, phoneNumber);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Failed to save student to database: " + e.getMessage());
+            return;
+        }
+
         Student newStudent = new Student(name, rollNo, branch, year, phoneNumber);
         students.add(newStudent);
         System.out.println();
-        System.out.println("-> Student saved successfully !! \n");
+        System.out.println("-> Student saved successfully to database !! \n");
     }
 
     public void searchStudent() {
@@ -107,8 +145,21 @@ public class StudentService {
         for (int i = 0; i < students.size(); i++) {
             Student s = students.get(i);
             if (s.getBranch().equalsIgnoreCase(branch) && s.getYear() == year && s.getRollNo() == rollNo) {
+                // Delete from SQLite Database
+                String deleteSQL = "DELETE FROM students WHERE branch = ? AND year = ? AND roll_no = ?";
+                try (Connection conn = DatabaseHelper.getConnection();
+                     PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+                    pstmt.setString(1, branch);
+                    pstmt.setInt(2, year);
+                    pstmt.setInt(3, rollNo);
+                    pstmt.executeUpdate();
+                } catch (SQLException e) {
+                    System.err.println("Failed to delete student from database: " + e.getMessage());
+                    return;
+                }
+
                 students.remove(i);
-                System.out.println("Student deleted successfully !! \n");
+                System.out.println("Student deleted successfully from database !! \n");
                 found = true;
                 break;
             }
