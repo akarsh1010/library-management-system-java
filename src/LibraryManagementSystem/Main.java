@@ -35,7 +35,7 @@ public class Main {
                 }
             }
 
-            if (choice == 9) {
+            if (choice == 13) {
                 System.out.println("Thanks for using :) ");
                 break;
             }
@@ -89,6 +89,26 @@ public class Main {
                     studentService.deleteStudent();
                 }
 
+                case 9 -> {
+                    System.out.println("Issuing Book :");
+                    System.out.println("--------------\n");
+                    bookService.issueBook(studentService);
+                }
+
+                case 10 -> {
+                    System.out.println("Returning Book :");
+                    System.out.println("----------------\n");
+                    bookService.returnBook();
+                }
+
+                case 11 -> {
+                    bookService.showIssuedBooks();
+                }
+
+                case 12 -> {
+                    bookService.showIssueHistory();
+                }
+
                 default -> System.out.println("Invalid choice :\n");
             }
         }
@@ -111,7 +131,13 @@ public class Main {
         System.out.println("7. Search Student ");
         System.out.println("8. Delete Student ");
         System.out.println();
-        System.out.println("9. Exit :) ");
+        System.out.println("--- ISSUE & RETURN ---");
+        System.out.println("9. Issue Book ");
+        System.out.println("10. Return Book ");
+        System.out.println("11. Show All Issued Books ");
+        System.out.println("12. Show Issue & Return History ");
+        System.out.println();
+        System.out.println("13. Exit :) ");
         System.out.println();
     }
 }
