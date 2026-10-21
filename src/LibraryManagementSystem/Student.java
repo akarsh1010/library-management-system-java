@@ -5,11 +5,15 @@ package LibraryManagementSystem;
         private String name;
         private int rollNo;
         private String branch;
+        private int year;
+        private String phoneNumber;
 
-        public Student(String name, int rollNo, String branch) {
+        public Student(String name, int rollNo, String branch, int year , String phoneNumber) {
             this.name = name;
             this.rollNo = rollNo;
             this.branch = branch;
+            this.year = year;
+            this.phoneNumber = phoneNumber;
         }
 
         public String getName() {
@@ -23,5 +27,18 @@ package LibraryManagementSystem;
         public String getBranch() {
             return this.branch;
         }
+
+        public int getYear(){
+            return this.year;
+        }
+
+        public String getPhoneNUmber(){
+            return this.phoneNumber;
+        }
+
+        public String getPhoneNumber(){
+            return this.phoneNumber;
+        }
     }
+
 
