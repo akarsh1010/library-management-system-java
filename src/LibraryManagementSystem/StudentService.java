@@ -77,7 +77,47 @@ public class StudentService {
             }
         }
 
-        // Save to SQLite Database
+        StringBuilder error = new StringBuilder();
+        if (registerStudent(name, branch, year, rollNo, phoneNumber, error)) {
+            System.out.println();
+            System.out.println("-> Student saved successfully to database !! \n");
+        } else {
+            System.out.println("\n-> " + error + "\n");
+        }
+    }
+
+    public synchronized boolean registerStudent(String name, String branch, int year, int rollNo, String phoneNumber, StringBuilder errorMsg) {
+        if (name == null || name.trim().isEmpty()) {
+            errorMsg.append("Student name cannot be empty!");
+            return false;
+        }
+        if (branch == null || branch.trim().isEmpty()) {
+            errorMsg.append("Branch cannot be empty!");
+            return false;
+        }
+        if (year < 1 || year > 4) {
+            errorMsg.append("Year must be between 1 and 4!");
+            return false;
+        }
+        name = name.toUpperCase().trim();
+        branch = branch.toUpperCase().trim();
+        phoneNumber = phoneNumber == null ? "" : phoneNumber.trim();
+
+        if (phoneNumber.length() != 10 || !phoneNumber.matches("\\d+")) {
+            errorMsg.append("Phone number must be exactly 10 digits!");
+            return false;
+        }
+
+        if (isStudentExists(branch, year, rollNo)) {
+            errorMsg.append("Student with Roll No ").append(rollNo).append(" already exists in ").append(branch).append(" Year ").append(year).append("!");
+            return false;
+        }
+
+        if (isPhoneNumberExists(phoneNumber)) {
+            errorMsg.append("Phone number ").append(phoneNumber).append(" already registered to another student!");
+            return false;
+        }
+
         String insertSQL = "INSERT INTO students (name, branch, year, roll_no, phone_number) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseHelper.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
@@ -88,14 +128,40 @@ public class StudentService {
             pstmt.setString(5, phoneNumber);
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.err.println("Failed to save student to database: " + e.getMessage());
-            return;
+            errorMsg.append("Failed to save student to database: ").append(e.getMessage());
+            return false;
         }
 
         Student newStudent = new Student(name, rollNo, branch, year, phoneNumber);
         students.add(newStudent);
-        System.out.println();
-        System.out.println("-> Student saved successfully to database !! \n");
+        return true;
+    }
+
+    public synchronized boolean removeStudent(String branch, int year, int rollNo, StringBuilder errorMsg) {
+        Student s = findStudent(branch, year, rollNo);
+        if (s == null) {
+            errorMsg.append("Student not found!");
+            return false;
+        }
+
+        String deleteSQL = "DELETE FROM students WHERE branch = ? AND year = ? AND roll_no = ?";
+        try (Connection conn = DatabaseHelper.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+            pstmt.setString(1, branch.toUpperCase().trim());
+            pstmt.setInt(2, year);
+            pstmt.setInt(3, rollNo);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            errorMsg.append("Failed to delete student from database: ").append(e.getMessage());
+            return false;
+        }
+
+        students.remove(s);
+        return true;
+    }
+
+    public ArrayList<Student> getAllStudents() {
+        return new ArrayList<>(students);
     }
 
     public void searchStudent() {
@@ -141,32 +207,11 @@ public class StudentService {
         int year = getValidInt("-> Enter Year : ");
         int rollNo = getValidInt("-> Enter Roll Number : ");
 
-        boolean found = false;
-        for (int i = 0; i < students.size(); i++) {
-            Student s = students.get(i);
-            if (s.getBranch().equalsIgnoreCase(branch) && s.getYear() == year && s.getRollNo() == rollNo) {
-                // Delete from SQLite Database
-                String deleteSQL = "DELETE FROM students WHERE branch = ? AND year = ? AND roll_no = ?";
-                try (Connection conn = DatabaseHelper.getConnection();
-                     PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
-                    pstmt.setString(1, branch);
-                    pstmt.setInt(2, year);
-                    pstmt.setInt(3, rollNo);
-                    pstmt.executeUpdate();
-                } catch (SQLException e) {
-                    System.err.println("Failed to delete student from database: " + e.getMessage());
-                    return;
-                }
-
-                students.remove(i);
-                System.out.println("Student deleted successfully from database !! \n");
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            System.out.println("Student not found : ");
+        StringBuilder error = new StringBuilder();
+        if (removeStudent(branch, year, rollNo, error)) {
+            System.out.println("Student deleted successfully from database !! \n");
+        } else {
+            System.out.println("-> " + error + " \n");
         }
     }
 

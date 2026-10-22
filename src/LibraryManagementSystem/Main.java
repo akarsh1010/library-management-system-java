@@ -15,6 +15,14 @@ public class Main {
         studentService = new StudentService();
         bookService = new BookService(studentService);
 
+        // Start background HTTP Web Server on port 8080
+        try {
+            LibraryHttpServer httpServer = new LibraryHttpServer(8080, studentService, bookService);
+            httpServer.start();
+        } catch (Exception e) {
+            System.err.println("Note: Web Server could not bind to port 8080 (" + e.getMessage() + "). Console mode is fully active.");
+        }
+
         System.out.println("LIBRARY MANAGEMENT SYSTEM ");
         System.out.println("==========================");
         System.out.println();

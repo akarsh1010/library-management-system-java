@@ -103,7 +103,32 @@ public class BookService {
         System.out.print("-> Enter Author Name : ");
         String author = scanner.nextLine().trim();
 
-        // Save to SQLite Database
+        StringBuilder error = new StringBuilder();
+        if (registerBook(bookId, title, author, error)) {
+            System.out.println();
+            System.out.println("-> Book saved successfully to database !! \n");
+        } else {
+            System.out.println("\n-> " + error + "\n");
+        }
+    }
+
+    public synchronized boolean registerBook(int bookId, String title, String author, StringBuilder errorMsg) {
+        if (title == null || title.trim().isEmpty()) {
+            errorMsg.append("Book title cannot be empty!");
+            return false;
+        }
+        if (author == null || author.trim().isEmpty()) {
+            errorMsg.append("Author name cannot be empty!");
+            return false;
+        }
+        title = title.trim();
+        author = author.trim();
+
+        if (isBookIdExists(bookId)) {
+            errorMsg.append("Book ID #").append(bookId).append(" already exists!");
+            return false;
+        }
+
         String insertSQL = "INSERT INTO books (book_id, title, author, is_issued) VALUES (?, ?, ?, 0)";
         try (Connection conn = DatabaseHelper.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
@@ -112,14 +137,13 @@ public class BookService {
             pstmt.setString(3, author);
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.err.println("Failed to save book to database: " + e.getMessage());
-            return;
+            errorMsg.append("Failed to save book to database: ").append(e.getMessage());
+            return false;
         }
 
         Book newBook = new Book(bookId, title, author);
         books.add(newBook);
-        System.out.println();
-        System.out.println("-> Book saved successfully to database !! \n");
+        return true;
     }
 
     public void searchBook() {
@@ -164,30 +188,37 @@ public class BookService {
 
     public void deleteBook() {
         int bookId = StudentService.getValidInt("-> Enter Book ID : ");
-        Book book = findBook(bookId);
-
-        if (book != null) {
-            if (book.isIssued()) {
-                System.out.println("Cannot delete! This book is currently issued to a student. Return it first.\n");
-                return;
-            }
-
-            // Delete from SQLite Database
-            String deleteSQL = "DELETE FROM books WHERE book_id = ?";
-            try (Connection conn = DatabaseHelper.getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
-                pstmt.setInt(1, bookId);
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                System.err.println("Failed to delete book from database: " + e.getMessage());
-                return;
-            }
-
-            books.remove(book);
+        StringBuilder error = new StringBuilder();
+        if (removeBook(bookId, error)) {
             System.out.println("Book deleted successfully from database !! \n");
         } else {
-            System.out.println("Book not found !! \n");
+            System.out.println("-> " + error + " \n");
         }
+    }
+
+    public synchronized boolean removeBook(int bookId, StringBuilder errorMsg) {
+        Book book = findBook(bookId);
+        if (book == null) {
+            errorMsg.append("Book with ID #").append(bookId).append(" not found!");
+            return false;
+        }
+        if (book.isIssued()) {
+            errorMsg.append("Cannot delete! This book is currently issued to a student. Return it first.");
+            return false;
+        }
+
+        String deleteSQL = "DELETE FROM books WHERE book_id = ?";
+        try (Connection conn = DatabaseHelper.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+            pstmt.setInt(1, bookId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            errorMsg.append("Failed to delete book from database: ").append(e.getMessage());
+            return false;
+        }
+
+        books.remove(book);
+        return true;
     }
 
     public void issueBook(StudentService studentService) {
@@ -213,24 +244,52 @@ public class BookService {
         int year = StudentService.getValidInt("-> Enter Year : ");
         int rollNo = StudentService.getValidInt("-> Enter Roll Number : ");
 
+        StringBuilder error = new StringBuilder();
+        if (issueBookDirect(bookId, branch, year, rollNo, studentService, error)) {
+            Student student = studentService.findStudent(branch, year, rollNo);
+            int currentIssuedCount = getIssuedBooksCount(student);
+            System.out.println();
+            System.out.println("=================================================");
+            System.out.println("          BOOK ISSUED SUCCESSFULLY! 🎉          ");
+            System.out.println("=================================================");
+            System.out.println(" Book Title   : " + book.getTitle());
+            System.out.println(" Book ID      : " + book.getBookId());
+            System.out.println(" Issued To    : " + student.getName());
+            System.out.println(" Class        : " + student.getBranch() + " - Year " + student.getYear() + " (Roll No: " + student.getRollNo() + ")");
+            System.out.println(" Phone Number : " + student.getPhoneNumber());
+            System.out.println(" Issue Date   : " + book.getIssueDate());
+            System.out.println(" Total Issued : " + currentIssuedCount + " / 3 Books");
+            System.out.println("=================================================\n");
+        } else {
+            System.out.println("\n❌ " + error + "\n");
+        }
+    }
+
+    public synchronized boolean issueBookDirect(int bookId, String branch, int year, int rollNo, StudentService studentService, StringBuilder errorMsg) {
+        Book book = findBook(bookId);
+        if (book == null) {
+            errorMsg.append("Book ID #").append(bookId).append(" not found in library!");
+            return false;
+        }
+        if (book.isIssued()) {
+            Student s = book.getIssuedTo();
+            errorMsg.append("Book is ALREADY ISSUED to ").append(s != null ? s.getName() : "someone").append(" on ").append(book.getIssueDate()).append("!");
+            return false;
+        }
+
         Student student = studentService.findStudent(branch, year, rollNo);
         if (student == null) {
-            System.out.println("-> Student NOT FOUND! Please register the student first.\n");
-            return;
+            errorMsg.append("Student NOT FOUND! (").append(branch).append(" Year ").append(year).append(", Roll ").append(rollNo).append("). Please register student first.");
+            return false;
         }
 
-        // Rule 1: Max 3 Books Limit Check
         int currentIssuedCount = getIssuedBooksCount(student);
         if (currentIssuedCount >= 3) {
-            System.out.println("\n❌ LIMIT REACHED! " + student.getName() + " already has 3 books issued.");
-            System.out.println("-> Maximum allowed limit is 3 books per student. Please return a book first.\n");
-            return;
+            errorMsg.append("LIMIT REACHED! ").append(student.getName()).append(" already has 3 books issued. Max 3 allowed!");
+            return false;
         }
 
-        // Rule 2: Set Issue Date & link to student
         String today = LocalDate.now().format(DATE_FORMATTER);
-
-        // Update in SQLite Database
         String updateBookSQL = "UPDATE books SET is_issued = 1, issued_branch = ?, issued_year = ?, issued_roll_no = ?, issue_date = ? WHERE book_id = ?";
         String insertRecordSQL = "INSERT INTO issue_records (book_id, book_title, student_name, branch, year, roll_no, phone_number, issue_date, return_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Currently Issued')";
 
@@ -259,14 +318,14 @@ public class BookService {
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
-                System.err.println("Database transaction failed: " + e.getMessage());
-                return;
+                errorMsg.append("Database transaction failed: ").append(e.getMessage());
+                return false;
             } finally {
                 conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            System.err.println("Database error: " + e.getMessage());
-            return;
+            errorMsg.append("Database error: ").append(e.getMessage());
+            return false;
         }
 
         book.setIssued(true);
@@ -284,40 +343,49 @@ public class BookService {
                 today
         );
         issueHistory.add(record);
-
-        System.out.println();
-        System.out.println("=================================================");
-        System.out.println("          BOOK ISSUED SUCCESSFULLY! 🎉          ");
-        System.out.println("=================================================");
-        System.out.println(" Book Title   : " + book.getTitle());
-        System.out.println(" Book ID      : " + book.getBookId());
-        System.out.println(" Issued To    : " + student.getName());
-        System.out.println(" Class        : " + student.getBranch() + " - Year " + student.getYear() + " (Roll No: " + student.getRollNo() + ")");
-        System.out.println(" Phone Number : " + student.getPhoneNumber());
-        System.out.println(" Issue Date   : " + today);
-        System.out.println(" Total Issued : " + (currentIssuedCount + 1) + " / 3 Books");
-        System.out.println("=================================================\n");
+        return true;
     }
 
     public void returnBook() {
         int bookId = StudentService.getValidInt("-> Enter Book ID to return : ");
         Book book = findBook(bookId);
+        Student s = book != null ? book.getIssuedTo() : null;
+        String issueDate = book != null ? book.getIssueDate() : null;
 
+        StringBuilder error = new StringBuilder();
+        if (returnBookDirect(bookId, error)) {
+            String returnDate = LocalDate.now().format(DATE_FORMATTER);
+            System.out.println();
+            System.out.println("=================================================");
+            System.out.println("         BOOK RETURNED SUCCESSFULLY! ✅         ");
+            System.out.println("=================================================");
+            System.out.println(" Book Title   : " + (book != null ? book.getTitle() : ""));
+            System.out.println(" Book ID      : " + bookId);
+            if (s != null) {
+                System.out.println(" Returned by  : " + s.getName() + " (" + s.getBranch() + " Year " + s.getYear() + ", Roll: " + s.getRollNo() + ")");
+            }
+            System.out.println(" Issue Date   : " + (issueDate != null ? issueDate : "N/A"));
+            System.out.println(" Return Date  : " + returnDate);
+            System.out.println(" Status       : Now Available in Library");
+            System.out.println("=================================================\n");
+        } else {
+            System.out.println("\n❌ " + error + "\n");
+        }
+    }
+
+    public synchronized boolean returnBookDirect(int bookId, StringBuilder errorMsg) {
+        Book book = findBook(bookId);
         if (book == null) {
-            System.out.println("-> Book not found in library!\n");
-            return;
+            errorMsg.append("Book ID #").append(bookId).append(" not found in library!");
+            return false;
         }
 
         if (!book.isIssued()) {
-            System.out.println("-> This book is NOT currently issued! It is already available in the library.\n");
-            return;
+            errorMsg.append("This book is NOT currently issued! It is already available in the library.");
+            return false;
         }
 
-        Student s = book.getIssuedTo();
-        String issueDate = book.getIssueDate();
         String returnDate = LocalDate.now().format(DATE_FORMATTER);
-
-        // Update in SQLite Database
         String updateBookSQL = "UPDATE books SET is_issued = 0, issued_branch = NULL, issued_year = NULL, issued_roll_no = NULL, issue_date = NULL WHERE book_id = ?";
         String updateRecordSQL = "UPDATE issue_records SET return_date = ? WHERE book_id = ? AND return_date = 'Currently Issued'";
 
@@ -336,14 +404,14 @@ public class BookService {
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
-                System.err.println("Database transaction failed: " + e.getMessage());
-                return;
+                errorMsg.append("Database transaction failed: ").append(e.getMessage());
+                return false;
             } finally {
                 conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            System.err.println("Database error: " + e.getMessage());
-            return;
+            errorMsg.append("Database error: ").append(e.getMessage());
+            return false;
         }
 
         for (IssueRecord record : issueHistory) {
@@ -356,20 +424,15 @@ public class BookService {
         book.setIssued(false);
         book.setIssuedTo(null);
         book.setIssueDate(null);
+        return true;
+    }
 
-        System.out.println();
-        System.out.println("=================================================");
-        System.out.println("         BOOK RETURNED SUCCESSFULLY! ✅         ");
-        System.out.println("=================================================");
-        System.out.println(" Book Title   : " + book.getTitle());
-        System.out.println(" Book ID      : " + book.getBookId());
-        if (s != null) {
-            System.out.println(" Returned by  : " + s.getName() + " (" + s.getBranch() + " Year " + s.getYear() + ", Roll: " + s.getRollNo() + ")");
-        }
-        System.out.println(" Issue Date   : " + (issueDate != null ? issueDate : "N/A"));
-        System.out.println(" Return Date  : " + returnDate);
-        System.out.println(" Status       : Now Available in Library");
-        System.out.println("=================================================\n");
+    public ArrayList<Book> getAllBooks() {
+        return new ArrayList<>(books);
+    }
+
+    public ArrayList<IssueRecord> getAllHistory() {
+        return new ArrayList<>(issueHistory);
     }
 
     public void showIssuedBooks() {
