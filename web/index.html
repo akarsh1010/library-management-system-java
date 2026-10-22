@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusLib • Enterprise College Library System</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Modern Dark/Slate Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-top">
+                <div class="brand">
+                    <div class="brand-logo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><line x1="12" y1="6" x2="16" y2="6"></line><line x1="12" y1="10" x2="16" y2="10"></line></svg>
+                    </div>
+                    <div class="brand-details">
+                        <h2>CampusLib</h2>
+                        <span class="brand-badge">College Portal</span>
+                    </div>
+                </div>
+
+                <div class="nav-section-label">MANAGEMENT</div>
+                <nav class="nav-menu">
+                    <button class="nav-item active" data-tab="dashboard">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                        <span>Dashboard</span>
+                    </button>
+                    <button class="nav-item" data-tab="books">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                        <span>Books Catalog</span>
+                        <span class="nav-pill" id="navBooksCount">0</span>
+                    </button>
+                    <button class="nav-item" data-tab="students">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <span>Student Directory</span>
+                        <span class="nav-pill" id="navStudentsCount">0</span>
+                    </button>
+                    <button class="nav-item" data-tab="issue-return">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                        <span>Circulation Desk</span>
+                    </button>
+                    <button class="nav-item" data-tab="history">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>Audit History</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="sidebar-bottom">
+                <div class="system-card">
+                    <div class="sc-header">
+                        <div class="pulse-indicator">
+                            <span class="pulse-ring"></span>
+                            <span class="pulse-dot"></span>
+                        </div>
+                        <span class="sc-status">Database Active</span>
+                    </div>
+                    <div class="sc-engine">
+                        <span class="sc-engine-name">SQLite Engine</span>
+                        <span class="sc-file">library.db</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Sleek Topbar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <div class="breadcrumb">
+                        <span>Portal</span>
+                        <span class="bc-sep">/</span>
+                        <span class="bc-current" id="breadcrumbCurrent">Dashboard</span>
+                    </div>
+                    <h1 class="page-heading" id="pageHeading">Library Dashboard</h1>
+                </div>
+
+                <div class="topbar-right">
+                    <div class="date-chip">
+                        <svg class="chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        <span id="dateDisplay">Wednesday, 21 Oct 2026</span>
+                    </div>
+                    <button class="btn btn-secondary" onclick="openModal('bookModal')">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span>+ Add Book</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="openModal('studentModal')">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span>+ Register Student</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="dashboard" class="tab-pane active">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <div class="wb-content">
+                        <h2>Welcome back, College Librarian! 👋</h2>
+                        <p>Track books, manage student circulation, and monitor returns with zero friction.</p>
+                    </div>
+                    <div class="wb-action">
+                        <button class="btn btn-white" onclick="switchTab('issue-return')">
+                            <span>Open Circulation Desk &rarr;</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="mc-header">
+                            <span class="mc-title">Total Cataloged</span>
+                            <div class="mc-icon-wrapper bg-blue-subtle">
+                                <svg class="mc-icon icon-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                            </div>
+                        </div>
+                        <div class="mc-value" id="statTotalBooks">0</div>
+                        <div class="mc-footer">
+                            <span class="pill-chip pill-blue">Repository</span>
+                            <span class="mc-sub">Total physical copies</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="mc-header">
+                            <span class="mc-title">Available on Shelf</span>
+                            <div class="mc-icon-wrapper bg-green-subtle">
+                                <svg class="mc-icon icon-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </div>
+                        <div class="mc-value" id="statAvailableBooks">0</div>
+                        <div class="mc-footer">
+                            <span class="pill-chip pill-green">Ready to Issue</span>
+                            <span class="mc-sub">Currently in stock</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="mc-header">
+                            <span class="mc-title">Checked Out</span>
+                            <div class="mc-icon-wrapper bg-amber-subtle">
+                                <svg class="mc-icon icon-amber" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                            </div>
+                        </div>
+                        <div class="mc-value" id="statIssuedBooks">0</div>
+                        <div class="mc-footer">
+                            <span class="pill-chip pill-amber">With Students</span>
+                            <span class="mc-sub">Pending returns</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="mc-header">
+                            <span class="mc-title">Registered Students</span>
+                            <div class="mc-icon-wrapper bg-purple-subtle">
+                                <svg class="mc-icon icon-purple" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                            </div>
+                        </div>
+                        <div class="mc-value" id="statTotalStudents">0</div>
+                        <div class="mc-footer">
+                            <span class="pill-chip pill-purple">Members</span>
+                            <span class="mc-sub">Active borrower profiles</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Content Split -->
+                <div class="content-split">
+                    <!-- Left: Currently Borrowed Books Table -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="ph-titles">
+                                <h3>Currently Borrowed Books</h3>
+                                <p>Live tracking of books currently issued to students</p>
+                            </div>
+                            <button class="btn btn-sm btn-outline" onclick="switchTab('issue-return')">Go to Counter</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Book Details</th>
+                                        <th>Borrower Student</th>
+                                        <th>Class Info</th>
+                                        <th>Issue Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboardIssuedTableBody">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Quick Rules & Library Policies -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="ph-titles">
+                                <h3>Library Rules Enforced</h3>
+                                <p>Automated policy guardrails</p>
+                            </div>
+                        </div>
+                        <div class="rules-list">
+                            <div class="rule-item">
+                                <div class="rule-icon bg-indigo">🛡️</div>
+                                <div class="rule-text">
+                                    <strong>Max 3 Books Quota</strong>
+                                    <p>Prevents any student from holding more than 3 books simultaneously.</p>
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <div class="rule-icon bg-green">🆔</div>
+                                <div class="rule-text">
+                                    <strong>Class & Year Isolation</strong>
+                                    <p>Allows same roll number in different branches/years without collision.</p>
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <div class="rule-icon bg-amber">📱</div>
+                                <div class="rule-text">
+                                    <strong>Unique Contact ID</strong>
+                                    <p>10-digit mobile number uniqueness ensures verified student records.</p>
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <div class="rule-icon bg-purple">💾</div>
+                                <div class="rule-text">
+                                    <strong>ACID SQLite Storage</strong>
+                                    <p>All operations commit immediately to disk; zero data loss on restart.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: BOOKS INVENTORY -->
+            <section id="books" class="tab-pane">
+                <div class="panel">
+                    <div class="panel-header header-controls">
+                        <div class="filter-group">
+                            <div class="search-input-wrapper">
+                                <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <input type="text" id="bookSearchInput" placeholder="Search by title, author, or book ID..." oninput="filterBooks()">
+                            </div>
+                            <select id="bookFilterStatus" class="select-box" onchange="filterBooks()">
+                                <option value="all">All Books</option>
+                                <option value="available">Available Books Only</option>
+                                <option value="issued">Currently Issued Only</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('bookModal')">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>+ Add New Book</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Book Title & Author</th>
+                                    <th>Availability Status</th>
+                                    <th>Current Borrower</th>
+                                    <th>Issued On</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="booksTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: STUDENTS DIRECTORY -->
+            <section id="students" class="tab-pane">
+                <div class="panel">
+                    <div class="panel-header header-controls">
+                        <div class="filter-group">
+                            <div class="search-input-wrapper">
+                                <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <input type="text" id="studentSearchInput" placeholder="Search by student name, roll no, branch, phone..." oninput="filterStudents()">
+                            </div>
+                            <select id="studentFilterBranch" class="select-box" onchange="filterStudents()">
+                                <option value="all">All Branches</option>
+                                <option value="BCA">BCA Only</option>
+                                <option value="CSE">CSE Only</option>
+                                <option value="ECE">ECE Only</option>
+                                <option value="ME">ME Only</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('studentModal')">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>+ Register Student</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Branch</th>
+                                    <th>Year</th>
+                                    <th>Roll Number</th>
+                                    <th>Phone Number</th>
+                                    <th>Quota (Max 3)</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: CIRCULATION DESK (ISSUE / RETURN) -->
+            <section id="issue-return" class="tab-pane">
+                <div class="desk-container">
+                    <!-- Issue Book Desk Panel -->
+                    <div class="desk-panel">
+                        <div class="dp-header">
+                            <div class="dp-badge dp-badge-issue">Check-out Desk</div>
+                            <h2>Issue Book to Student</h2>
+                            <p>Verify book availability and check student quota</p>
+                        </div>
+
+                        <form id="issueForm" onsubmit="handleIssueBook(event)" class="desk-form">
+                            <div class="input-block">
+                                <label>Book ID <span class="required">*</span></label>
+                                <div class="input-with-hint">
+                                    <input type="number" id="issueBookId" placeholder="Enter Book ID (e.g. 101)" required>
+                                </div>
+                                <div class="live-hint" id="issueBookLiveHint"></div>
+                            </div>
+
+                            <div class="student-select-block">
+                                <label class="block-title">Borrower Student Identity <span class="required">*</span></label>
+                                <div class="grid-3">
+                                    <div class="input-block">
+                                        <label>Branch</label>
+                                        <input type="text" id="issueBranch" placeholder="e.g. BCA, CSE" required>
+                                    </div>
+                                    <div class="input-block">
+                                        <label>Year (1-4)</label>
+                                        <input type="number" id="issueYear" min="1" max="4" placeholder="e.g. 2" required>
+                                    </div>
+                                    <div class="input-block">
+                                        <label>Roll Number</label>
+                                        <input type="number" id="issueRollNo" placeholder="e.g. 12" required>
+                                    </div>
+                                </div>
+                                <div class="live-hint" id="issueStudentLiveHint"></div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-full">
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+                                <span>Confirm Book Check-Out</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Return Book Desk Panel -->
+                    <div class="desk-panel">
+                        <div class="dp-header">
+                            <div class="dp-badge dp-badge-return">Check-in Desk</div>
+                            <h2>Return Book to Library</h2>
+                            <p>Accept returned book and update student's quota</p>
+                        </div>
+
+                        <form id="returnForm" onsubmit="handleReturnBook(event)" class="desk-form">
+                            <div class="input-block">
+                                <label>Book ID to Return <span class="required">*</span></label>
+                                <div class="input-with-hint">
+                                    <input type="number" id="returnBookId" placeholder="Enter Book ID (e.g. 101)" required>
+                                </div>
+                            </div>
+
+                            <!-- Live Return Card Preview -->
+                            <div class="return-card-preview" id="returnCardPreview" style="display: none;">
+                                <div class="rcp-title">
+                                    <span class="rcp-icon">📖</span>
+                                    <div>
+                                        <h4 id="previewBookTitle">-</h4>
+                                        <small id="previewBookId">-</small>
+                                    </div>
+                                </div>
+                                <div class="rcp-meta">
+                                    <div class="rcp-meta-item">
+                                        <span>Borrower:</span>
+                                        <strong id="previewBorrower">-</strong>
+                                    </div>
+                                    <div class="rcp-meta-item">
+                                        <span>Class:</span>
+                                        <strong id="previewClass">-</strong>
+                                    </div>
+                                    <div class="rcp-meta-item">
+                                        <span>Issued Date:</span>
+                                        <strong id="previewDate" class="text-amber">-</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success btn-full">
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span>Process Book Check-In</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: AUDIT HISTORY -->
+            <section id="history" class="tab-pane">
+                <div class="panel">
+                    <div class="panel-header header-controls">
+                        <div class="ph-titles">
+                            <h3>Permanent Circulation Log</h3>
+                            <p>Immutable audit trail of all book issues and returns with timestamps</p>
+                        </div>
+                        <div class="search-input-wrapper">
+                            <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="historySearchInput" placeholder="Filter transaction logs..." oninput="filterHistory()">
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Transaction Book</th>
+                                    <th>Student Name</th>
+                                    <th>Class & Roll</th>
+                                    <th>Contact Phone</th>
+                                    <th>Issued Date</th>
+                                    <th>Returned Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADD BOOK -->
+    <div id="bookModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-top">
+                <div class="modal-title-group">
+                    <div class="m-icon bg-blue-subtle">📖</div>
+                    <div>
+                        <h3>Add New Title</h3>
+                        <p>Catalog a new physical book into the library repository</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal('bookModal')">&times;</button>
+            </div>
+            <form id="addBookForm" onsubmit="handleAddBook(event)">
+                <div class="modal-body">
+                    <div class="input-block">
+                        <label>Book ID (Unique Barcode / ID) <span class="required">*</span></label>
+                        <input type="number" id="newBookId" placeholder="e.g. 104" required>
+                        <small class="field-hint">Must be a unique integer identifier</small>
+                    </div>
+                    <div class="input-block">
+                        <label>Book Title <span class="required">*</span></label>
+                        <input type="text" id="newBookTitle" placeholder="e.g. Introduction to Algorithms" required>
+                    </div>
+                    <div class="input-block">
+                        <label>Author / Publisher <span class="required">*</span></label>
+                        <input type="text" id="newBookAuthor" placeholder="e.g. Thomas H. Cormen" required>
+                    </div>
+                </div>
+                <div class="modal-bottom">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('bookModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save to Catalog</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: REGISTER STUDENT -->
+    <div id="studentModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-top">
+                <div class="modal-title-group">
+                    <div class="m-icon bg-purple-subtle">🎓</div>
+                    <div>
+                        <h3>Register Student Member</h3>
+                        <p>Add a new student profile to issue books to</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal('studentModal')">&times;</button>
+            </div>
+            <form id="addStudentForm" onsubmit="handleAddStudent(event)">
+                <div class="modal-body">
+                    <div class="input-block">
+                        <label>Student Full Name <span class="required">*</span></label>
+                        <input type="text" id="newStudentName" placeholder="e.g. RAHUL SHARMA" required>
+                    </div>
+                    <div class="grid-3">
+                        <div class="input-block">
+                            <label>Branch <span class="required">*</span></label>
+                            <input type="text" id="newStudentBranch" placeholder="e.g. BCA" required>
+                        </div>
+                        <div class="input-block">
+                            <label>Year (1-4) <span class="required">*</span></label>
+                            <input type="number" id="newStudentYear" min="1" max="4" placeholder="2" required>
+                        </div>
+                        <div class="input-block">
+                            <label>Roll No <span class="required">*</span></label>
+                            <input type="number" id="newStudentRollNo" placeholder="12" required>
+                        </div>
+                    </div>
+                    <div class="input-block">
+                        <label>10-Digit Mobile Number (Unique) <span class="required">*</span></label>
+                        <input type="tel" id="newStudentPhone" pattern="[0-9]{10}" placeholder="e.g. 9876543210" required>
+                        <small class="field-hint">Must be exactly 10 digits; used for verification</small>
+                    </div>
+                </div>
+                <div class="modal-bottom">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('studentModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-stack"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
