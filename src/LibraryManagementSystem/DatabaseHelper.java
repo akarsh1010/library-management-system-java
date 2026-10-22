@@ -70,29 +70,8 @@ public class DatabaseHelper {
             """;
             stmt.execute(createIssueRecordsTable);
 
-            // Seed initial data if tables are empty
-            seedInitialData(stmt);
-
         } catch (SQLException e) {
             System.err.println("Database initialization failed: " + e.getMessage());
-        }
-    }
-
-    private static void seedInitialData(Statement stmt) throws SQLException {
-        // Seed students if table is empty
-        ResultSet rsStudents = stmt.executeQuery("SELECT COUNT(*) AS total FROM students");
-        if (rsStudents.next() && rsStudents.getInt("total") == 0) {
-            stmt.execute("INSERT INTO students VALUES ('RAHUL SHARMA', 'BCA', 2, 12, '9876543210');");
-            stmt.execute("INSERT INTO students VALUES ('AMAN VERMA', 'CSE', 3, 15, '9812345678');");
-            stmt.execute("INSERT INTO students VALUES ('PRIYA SINGH', 'BCA', 1, 5, '9765432109');");
-        }
-
-        // Seed books if table is empty
-        ResultSet rsBooks = stmt.executeQuery("SELECT COUNT(*) AS total FROM books");
-        if (rsBooks.next() && rsBooks.getInt("total") == 0) {
-            stmt.execute("INSERT INTO books VALUES (101, 'Java Complete Reference', 'Herbert Schildt', 0, NULL, NULL, NULL, NULL);");
-            stmt.execute("INSERT INTO books VALUES (102, 'Clean Code', 'Robert C. Martin', 0, NULL, NULL, NULL, NULL);");
-            stmt.execute("INSERT INTO books VALUES (103, 'Data Structures & Algorithms', 'Mark Allen Weiss', 0, NULL, NULL, NULL, NULL);");
         }
     }
 }
