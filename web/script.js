@@ -1,17 +1,33 @@
 // ==========================================================
 // CampusLib - Enterprise Library Dashboard Engine
-// Full-Stack Connected Mode (REST API + SQLite Integration)
+// Full-Stack Connected Mode (On-Demand / Lazy Loading)
 // ==========================================================
 
 const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080/api' : '/api';
 let isBackendConnected = false;
+let currentActiveTab = 'dashboard';
 
-// Initial Data Cache (Clean slate for real CSV data)
+// In-Memory Cached State
 let books = [];
 let students = [];
 let historyRecords = [];
+let dashboardData = {
+    totalBooks: 0,
+    availableBooks: 0,
+    issuedBooks: 0,
+    totalStudents: 0,
+    borrowedBooks: []
+};
 
-// Palette for deterministic student avatar colors
+// Lazy Loading Tracker: Only fetch when the user actually opens that tab
+const loadedTabs = {
+    dashboard: false,
+    books: false,
+    students: false,
+    history: false
+};
+
+// Deterministic student avatar colors
 const AVATAR_COLORS = [
     "#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626", 
     "#0891b2", "#4f46e5", "#be185d", "#0d9488", "#b45309"
@@ -23,38 +39,130 @@ document.addEventListener("DOMContentLoaded", async () => {
     initDateDisplay();
     setupLiveHints();
     setupModalKeybinds();
-    renderAll();
     
-    // Connect to Java SQLite Backend
-    await syncFromBackend();
+    // Initial Load: ONLY load lightweight Dashboard stats!
+    // Zero waste: /api/books, /api/students, /api/history are NOT called up-front!
+    await loadDashboardData();
 });
 
 // ==========================================================
-// 0. Backend Data Synchronization (REST API)
+// 0. Lazy-Loaded API Endpoints (On-Demand Per Tab)
 // ==========================================================
-async function syncFromBackend() {
-    try {
-        const [booksRes, studentsRes, historyRes] = await Promise.all([
-            fetch(`${API_BASE}/books`),
-            fetch(`${API_BASE}/students`),
-            fetch(`${API_BASE}/history`)
-        ]);
 
-        if (booksRes.ok && studentsRes.ok && historyRes.ok) {
-            books = await booksRes.json();
-            students = await studentsRes.json();
-            historyRecords = await historyRes.json();
+// 0.1. Dashboard Only: Lightweight summary & active loans
+async function loadDashboardData(force = false) {
+    if (loadedTabs.dashboard && !force) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/dashboard`);
+        if (res.ok) {
+            dashboardData = await res.json();
             isBackendConnected = true;
             updateConnectionUI(true);
-            renderAll();
-            return true;
+            renderStatsFromDashboard(dashboardData);
+            renderDashboardIssuedTable(dashboardData.borrowedBooks || []);
+            loadedTabs.dashboard = true;
+            return;
         }
     } catch (err) {
-        console.warn("Backend not reachable at " + API_BASE + ", using local cache:", err);
+        console.warn("Backend not reachable for dashboard:", err);
         isBackendConnected = false;
         updateConnectionUI(false);
     }
-    return false;
+}
+
+// 0.2. Books Catalog Only: Called when user clicks "Books Catalog"
+async function loadBooksData(force = false) {
+    if (loadedTabs.books && !force) {
+        renderBooksTable();
+        return;
+    }
+
+    const tbody = document.getElementById("booksTableBody");
+    if (tbody && !books.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 28px; color: var(--text-muted);">Fetching books catalog... ⏳</td></tr>`;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/books`);
+        if (res.ok) {
+            books = await res.json();
+            isBackendConnected = true;
+            updateConnectionUI(true);
+            loadedTabs.books = true;
+            renderBooksTable();
+            // Also update total books in sidebar
+            const navB = document.getElementById("navBooksCount");
+            if (navB) navB.innerText = books.length;
+        }
+    } catch (err) {
+        console.warn("Failed to load books catalog:", err);
+    }
+}
+
+// 0.3. Student Directory Only: Called when user clicks "Student Directory"
+async function loadStudentsData(force = false) {
+    if (loadedTabs.students && !force) {
+        renderStudentsTable();
+        return;
+    }
+
+    const tbody = document.getElementById("studentsTableBody");
+    if (tbody && !students.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">Fetching student directory... ⏳</td></tr>`;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/students`);
+        if (res.ok) {
+            students = await res.json();
+            isBackendConnected = true;
+            updateConnectionUI(true);
+            loadedTabs.students = true;
+            renderStudentsTable();
+            // Also update total students in sidebar
+            const navS = document.getElementById("navStudentsCount");
+            if (navS) navS.innerText = students.length;
+        }
+    } catch (err) {
+        console.warn("Failed to load student directory:", err);
+    }
+}
+
+// 0.4. Audit History Only: Called when user clicks "Audit History"
+async function loadHistoryData(force = false) {
+    if (loadedTabs.history && !force) {
+        renderHistoryTable();
+        return;
+    }
+
+    const tbody = document.getElementById("historyTableBody");
+    if (tbody && !historyRecords.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">Fetching audit transactions... ⏳</td></tr>`;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/history`);
+        if (res.ok) {
+            historyRecords = await res.json();
+            isBackendConnected = true;
+            updateConnectionUI(true);
+            loadedTabs.history = true;
+            renderHistoryTable();
+        }
+    } catch (err) {
+        console.warn("Failed to load history records:", err);
+    }
+}
+
+// Ensure books & students exist for live lookup in circulation desk
+async function ensureCirculationDataLoaded() {
+    const promises = [];
+    if (!loadedTabs.books) promises.push(loadBooksData());
+    if (!loadedTabs.students) promises.push(loadStudentsData());
+    if (promises.length > 0) {
+        await Promise.all(promises);
+    }
 }
 
 function updateConnectionUI(connected) {
@@ -83,7 +191,7 @@ function updateConnectionUI(connected) {
 }
 
 // ==========================================================
-// 1. Navigation & Tab Switching
+// 1. Navigation & Tab Switching (Lazy Loading Dispatcher)
 // ==========================================================
 function initNavigation() {
     const navItems = document.querySelectorAll(".nav-item");
@@ -95,7 +203,9 @@ function initNavigation() {
     });
 }
 
-function switchTab(tabId) {
+async function switchTab(tabId) {
+    currentActiveTab = tabId;
+
     document.querySelectorAll(".nav-item").forEach(btn => {
         btn.classList.toggle("active", btn.getAttribute("data-tab") === tabId);
     });
@@ -117,6 +227,19 @@ function switchTab(tabId) {
         const ph = document.getElementById("pageHeading");
         if (bc) bc.innerText = meta[tabId].breadcrumb;
         if (ph) ph.innerText = meta[tabId].heading;
+    }
+
+    // Lazy load specific tab data on demand
+    if (tabId === 'dashboard') {
+        await loadDashboardData();
+    } else if (tabId === 'books') {
+        await loadBooksData();
+    } else if (tabId === 'students') {
+        await loadStudentsData();
+    } else if (tabId === 'history') {
+        await loadHistoryData();
+    } else if (tabId === 'issue-return') {
+        await ensureCirculationDataLoaded();
     }
 }
 
@@ -181,48 +304,34 @@ function renderQuotaWidget(count) {
 }
 
 // ==========================================================
-// 3. Master Render Function
+// 3. Render Functions
 // ==========================================================
-function renderAll() {
-    renderStats();
-    renderDashboardIssuedTable();
-    renderBooksTable();
-    renderStudentsTable();
-    renderHistoryTable();
-}
 
-// 3.1. Stats & Navigation Counts
-function renderStats() {
-    const totalBooks = books.length;
-    const issuedBooks = books.filter(b => b.isIssued).length;
-    const availableBooks = totalBooks - issuedBooks;
-    const totalStudents = students.length;
-
+// 3.1. Dashboard Metrics from /api/dashboard
+function renderStatsFromDashboard(data) {
     const elTotal = document.getElementById("statTotalBooks");
     const elAvail = document.getElementById("statAvailableBooks");
     const elIssued = document.getElementById("statIssuedBooks");
     const elStudents = document.getElementById("statTotalStudents");
 
-    if (elTotal) elTotal.innerText = totalBooks;
-    if (elAvail) elAvail.innerText = availableBooks;
-    if (elIssued) elIssued.innerText = issuedBooks;
-    if (elStudents) elStudents.innerText = totalStudents;
+    if (elTotal) elTotal.innerText = data.totalBooks ?? 0;
+    if (elAvail) elAvail.innerText = data.availableBooks ?? 0;
+    if (elIssued) elIssued.innerText = data.issuedBooks ?? 0;
+    if (elStudents) elStudents.innerText = data.totalStudents ?? 0;
 
     // Sidebar pills
     const navB = document.getElementById("navBooksCount");
     const navS = document.getElementById("navStudentsCount");
-    if (navB) navB.innerText = totalBooks;
-    if (navS) navS.innerText = totalStudents;
+    if (navB) navB.innerText = data.totalBooks ?? 0;
+    if (navS) navS.innerText = data.totalStudents ?? 0;
 }
 
 // 3.2. Dashboard Issued Table
-function renderDashboardIssuedTable() {
+function renderDashboardIssuedTable(issuedList) {
     const tbody = document.getElementById("dashboardIssuedTableBody");
     if (!tbody) return;
 
-    const issuedList = books.filter(b => b.isIssued);
-
-    if (issuedList.length === 0) {
+    if (!issuedList || issuedList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 36px; color: var(--text-muted);">
             <div style="font-size: 26px; margin-bottom: 6px;">🎉</div>
             <strong>No books are currently issued.</strong><br>
@@ -290,7 +399,7 @@ function renderBooksTable() {
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            No books found matching your search criteria.
+            No books found in catalog.
         </td></tr>`;
         return;
     }
@@ -369,7 +478,7 @@ function renderStudentsTable() {
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            No student members found matching criteria.
+            No student members found in directory.
         </td></tr>`;
         return;
     }
@@ -429,7 +538,7 @@ function renderHistoryTable() {
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            No audit log records match the filter.
+            No audit log records found.
         </td></tr>`;
         return;
     }
@@ -472,17 +581,17 @@ function filterHistory() {
 // 4. Live Hint Listeners & Shortcuts
 // ==========================================================
 function setupLiveHints() {
-    // 1. Issue Book ID Lookup
     const issueBookInput = document.getElementById("issueBookId");
     const issueBookHint = document.getElementById("issueBookLiveHint");
 
     if (issueBookInput && issueBookHint) {
-        issueBookInput.addEventListener("input", () => {
+        issueBookInput.addEventListener("input", async () => {
             const val = issueBookInput.value.trim();
             if (!val) {
                 issueBookHint.innerHTML = "";
                 return;
             }
+            await ensureCirculationDataLoaded();
             const id = parseInt(val);
             const book = books.find(b => b.id === id);
             if (!book) {
@@ -495,13 +604,12 @@ function setupLiveHints() {
         });
     }
 
-    // 2. Student Identity Live Lookup
     const branchInput = document.getElementById("issueBranch");
     const yearInput = document.getElementById("issueYear");
     const rollInput = document.getElementById("issueRollNo");
     const studentHint = document.getElementById("issueStudentLiveHint");
 
-    function checkStudentLive() {
+    async function checkStudentLive() {
         if (!studentHint) return;
         const branch = (branchInput?.value || "").toUpperCase().trim();
         const year = parseInt(yearInput?.value || "0");
@@ -512,6 +620,7 @@ function setupLiveHints() {
             return;
         }
 
+        await ensureCirculationDataLoaded();
         const student = students.find(s => s.branch === branch && s.year === year && s.rollNo === roll);
         if (!student) {
             studentHint.innerHTML = `<span style="color: var(--danger);">❌ Student not found in ${branch} Year ${year} with Roll ${roll}</span>`;
@@ -529,17 +638,17 @@ function setupLiveHints() {
         if (inp) inp.addEventListener("input", checkStudentLive);
     });
 
-    // 3. Return Preview Card Live Lookup
     const returnInput = document.getElementById("returnBookId");
     const returnCard = document.getElementById("returnCardPreview");
 
     if (returnInput && returnCard) {
-        returnInput.addEventListener("input", () => {
+        returnInput.addEventListener("input", async () => {
             const val = returnInput.value.trim();
             if (!val) {
                 returnCard.style.display = "none";
                 return;
             }
+            await ensureCirculationDataLoaded();
             const id = parseInt(val);
             const book = books.find(b => b.id === id);
 
@@ -558,7 +667,7 @@ function setupLiveHints() {
 }
 
 // Shortcuts
-function quickIssue(bookId) {
+async function quickIssue(bookId) {
     switchTab("issue-return");
     const issueInput = document.getElementById("issueBookId");
     if (issueInput) {
@@ -569,7 +678,7 @@ function quickIssue(bookId) {
     if (branchInput) branchInput.focus();
 }
 
-function issueToStudent(branch, year, rollNo) {
+async function issueToStudent(branch, year, rollNo) {
     switchTab("issue-return");
     const bInp = document.getElementById("issueBranch");
     const yInp = document.getElementById("issueYear");
@@ -603,39 +712,27 @@ async function handleAddBook(e) {
     const title = titleInput.value.trim();
     const author = authorInput.value.trim();
 
-    if (isBackendConnected) {
-        try {
-            const res = await fetch(`${API_BASE}/books`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, title, author })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                closeModal("bookModal");
-                document.getElementById("addBookForm").reset();
-                await syncFromBackend();
-                showToast(data.message || `Book "${title}" added to catalog! 📚`, "success");
-            } else {
-                showToast(data.message || "Failed to add book!", "error");
-            }
-        } catch (err) {
-            showToast("Server error: " + err.message, "error");
+    try {
+        const res = await fetch(`${API_BASE}/books`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, title, author })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeModal("bookModal");
+            document.getElementById("addBookForm").reset();
+            // Invalidate caches
+            loadedTabs.dashboard = false;
+            loadedTabs.books = false;
+            await refreshActiveTab();
+            showToast(data.message || `Book "${title}" added to catalog! 📚`, "success");
+        } else {
+            showToast(data.message || "Failed to add book!", "error");
         }
-        return;
+    } catch (err) {
+        showToast("Server communication error: " + err.message, "error");
     }
-
-    // Mock fallback
-    if (books.some(b => b.id === id)) {
-        showToast(`Book ID #${id} is already taken! Use a unique ID.`, "error");
-        return;
-    }
-
-    books.push({ id, title, author, isIssued: false, issuedTo: null, issueDate: null });
-    closeModal("bookModal");
-    document.getElementById("addBookForm").reset();
-    renderAll();
-    showToast(`Book "${title}" added to catalog! 📚`, "success");
 }
 
 // Add Student
@@ -652,44 +749,27 @@ async function handleAddStudent(e) {
         return;
     }
 
-    if (isBackendConnected) {
-        try {
-            const res = await fetch(`${API_BASE}/students`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, branch, year, rollNo, phone })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                closeModal("studentModal");
-                document.getElementById("addStudentForm").reset();
-                await syncFromBackend();
-                showToast(data.message || `Student ${name} registered successfully! 🎓`, "success");
-            } else {
-                showToast(data.message || "Failed to register student!", "error");
-            }
-        } catch (err) {
-            showToast("Server error: " + err.message, "error");
+    try {
+        const res = await fetch(`${API_BASE}/students`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, branch, year, rollNo, phone })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closeModal("studentModal");
+            document.getElementById("addStudentForm").reset();
+            // Invalidate caches
+            loadedTabs.dashboard = false;
+            loadedTabs.students = false;
+            await refreshActiveTab();
+            showToast(data.message || `Student ${name} registered successfully! 🎓`, "success");
+        } else {
+            showToast(data.message || "Failed to register student!", "error");
         }
-        return;
+    } catch (err) {
+        showToast("Server communication error: " + err.message, "error");
     }
-
-    // Mock fallback
-    if (students.some(s => s.phone === phone)) {
-        showToast(`Mobile ${phone} is already linked to another student!`, "error");
-        return;
-    }
-
-    if (students.some(s => s.branch === branch && s.year === year && s.rollNo === rollNo)) {
-        showToast(`Roll No ${rollNo} already registered in ${branch} Year ${year}!`, "error");
-        return;
-    }
-
-    students.push({ name, branch, year, rollNo, phone });
-    closeModal("studentModal");
-    document.getElementById("addStudentForm").reset();
-    renderAll();
-    showToast(`Student ${name} registered successfully! 🎓`, "success");
 }
 
 // Issue Book
@@ -700,76 +780,32 @@ async function handleIssueBook(e) {
     const year = parseInt(document.getElementById("issueYear").value);
     const rollNo = parseInt(document.getElementById("issueRollNo").value);
 
-    if (isBackendConnected) {
-        try {
-            const res = await fetch(`${API_BASE}/issue`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bookId, branch, year, rollNo })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                document.getElementById("issueForm").reset();
-                const hintB = document.getElementById("issueBookLiveHint");
-                const hintS = document.getElementById("issueStudentLiveHint");
-                if (hintB) hintB.innerHTML = "";
-                if (hintS) hintS.innerHTML = "";
-                await syncFromBackend();
-                showToast(data.message || `Book #${bookId} checked out successfully! 🎉`, "success");
-            } else {
-                showToast(data.message || "Failed to issue book!", "error");
-            }
-        } catch (err) {
-            showToast("Server error: " + err.message, "error");
+    try {
+        const res = await fetch(`${API_BASE}/issue`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bookId, branch, year, rollNo })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            document.getElementById("issueForm").reset();
+            const hintB = document.getElementById("issueBookLiveHint");
+            const hintS = document.getElementById("issueStudentLiveHint");
+            if (hintB) hintB.innerHTML = "";
+            if (hintS) hintS.innerHTML = "";
+            // Invalidate all caches for fresh loan state
+            loadedTabs.dashboard = false;
+            loadedTabs.books = false;
+            loadedTabs.students = false;
+            loadedTabs.history = false;
+            await refreshActiveTab();
+            showToast(data.message || `Book #${bookId} checked out successfully! 🎉`, "success");
+        } else {
+            showToast(data.message || "Failed to issue book!", "error");
         }
-        return;
+    } catch (err) {
+        showToast("Server error: " + err.message, "error");
     }
-
-    // Mock fallback
-    const book = books.find(b => b.id === bookId);
-    if (!book) {
-        showToast(`Book ID #${bookId} does not exist in library!`, "error");
-        return;
-    }
-
-    if (book.isIssued) {
-        showToast(`Book "${book.title}" is already checked out to ${book.issuedTo ? book.issuedTo.name : 'someone'}!`, "error");
-        return;
-    }
-
-    const student = students.find(s => s.branch === branch && s.year === year && s.rollNo === rollNo);
-    if (!student) {
-        showToast(`Student not found! (${branch} Yr ${year}, Roll ${rollNo}). Please register first.`, "error");
-        return;
-    }
-
-    const currentBorrowCount = countBorrowedBooks(student);
-    if (currentBorrowCount >= 3) {
-        showToast(`LIMIT EXCEEDED! ${student.name} already holds 3 books. Max 3 allowed!`, "error");
-        return;
-    }
-
-    const today = getTodayString();
-    book.isIssued = true;
-    book.issuedTo = student;
-    book.issueDate = today;
-
-    historyRecords.push({
-        bookId: book.id,
-        bookTitle: book.title,
-        studentName: student.name,
-        branch: student.branch,
-        year: student.year,
-        rollNo: student.rollNo,
-        phone: student.phone,
-        issueDate: today,
-        returnDate: "Currently Issued",
-        status: "Borrowing"
-    });
-
-    document.getElementById("issueForm").reset();
-    renderAll();
-    showToast(`"${book.title}" checked out to ${student.name}!`, "success");
 }
 
 // Return Book
@@ -780,138 +816,95 @@ function handleReturnBook(e) {
 }
 
 async function processReturn(bookId) {
-    if (isBackendConnected) {
-        try {
-            const res = await fetch(`${API_BASE}/return`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bookId })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                const returnForm = document.getElementById("returnForm");
-                if (returnForm) returnForm.reset();
-                const returnCard = document.getElementById("returnCardPreview");
-                if (returnCard) returnCard.style.display = "none";
-                await syncFromBackend();
-                showToast(data.message || `Book #${bookId} returned successfully! ✅`, "success");
-            } else {
-                showToast(data.message || "Failed to return book!", "error");
-            }
-        } catch (err) {
-            showToast("Server error: " + err.message, "error");
+    try {
+        const res = await fetch(`${API_BASE}/return`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bookId })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            const returnForm = document.getElementById("returnForm");
+            if (returnForm) returnForm.reset();
+            const returnCard = document.getElementById("returnCardPreview");
+            if (returnCard) returnCard.style.display = "none";
+            // Invalidate all caches
+            loadedTabs.dashboard = false;
+            loadedTabs.books = false;
+            loadedTabs.students = false;
+            loadedTabs.history = false;
+            await refreshActiveTab();
+            showToast(data.message || `Book #${bookId} returned successfully! ✅`, "success");
+        } else {
+            showToast(data.message || "Failed to return book!", "error");
         }
-        return;
+    } catch (err) {
+        showToast("Server error: " + err.message, "error");
     }
-
-    // Mock fallback
-    const book = books.find(b => b.id === bookId);
-    if (!book) {
-        showToast(`Book #${bookId} not found in repository!`, "error");
-        return;
-    }
-
-    if (!book.isIssued) {
-        showToast(`Book "${book.title}" is not checked out. It's already available!`, "error");
-        return;
-    }
-
-    const borrowerName = book.issuedTo ? book.issuedTo.name : "Student";
-    const today = getTodayString();
-
-    const record = historyRecords.find(r => r.bookId === book.id && r.returnDate === "Currently Issued");
-    if (record) {
-        record.returnDate = today;
-        record.status = "Returned";
-    }
-
-    book.isIssued = false;
-    book.issuedTo = null;
-    book.issueDate = null;
-
-    const returnForm = document.getElementById("returnForm");
-    if (returnForm) returnForm.reset();
-    const returnCard = document.getElementById("returnCardPreview");
-    if (returnCard) returnCard.style.display = "none";
-
-    renderAll();
-    showToast(`"${book.title}" returned by ${borrowerName}! Shelf status updated. ✅`, "success");
 }
 
 // Delete Book
 async function deleteBook(id) {
-    const book = books.find(b => b.id === id);
-    if (!book) return;
-
-    if (book.isIssued) {
-        showToast(`Cannot delete "${book.title}"! It is currently issued to a student. Return it first.`, "error");
+    if (!confirm(`Confirm deletion of Book #${id} from catalog?`)) {
         return;
     }
 
-    if (!confirm(`Confirm deletion of "${book.title}" (#${book.id}) from catalog?`)) {
-        return;
-    }
-
-    if (isBackendConnected) {
-        try {
-            const res = await fetch(`${API_BASE}/books?id=${id}`, {
-                method: "DELETE"
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                await syncFromBackend();
-                showToast(data.message || `Book #${id} removed from catalog.`, "success");
-            } else {
-                showToast(data.message || "Failed to delete book!", "error");
-            }
-        } catch (err) {
-            showToast("Server error: " + err.message, "error");
+    try {
+        const res = await fetch(`${API_BASE}/books?id=${id}`, {
+            method: "DELETE"
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            loadedTabs.dashboard = false;
+            loadedTabs.books = false;
+            await refreshActiveTab();
+            showToast(data.message || `Book #${id} removed from catalog.`, "success");
+        } else {
+            showToast(data.message || "Failed to delete book!", "error");
         }
-        return;
+    } catch (err) {
+        showToast("Server error: " + err.message, "error");
     }
-
-    books = books.filter(b => b.id !== id);
-    renderAll();
-    showToast(`Book #${id} removed from catalog.`, "success");
 }
 
 // Delete Student
 async function deleteStudent(branch, year, rollNo) {
-    const student = students.find(s => s.branch === branch && s.year === year && s.rollNo === rollNo);
-    if (!student) return;
-
-    const borrowedCount = countBorrowedBooks(student);
-    if (borrowedCount > 0) {
-        showToast(`Cannot delete ${student.name}! They currently hold ${borrowedCount} book(s). Return books first.`, "error");
+    if (!confirm(`Confirm deletion of student ${branch} Year ${year}, Roll ${rollNo}?`)) {
         return;
     }
 
-    if (!confirm(`Confirm deletion of student ${student.name} (${branch} Year ${year}, Roll ${rollNo})?`)) {
-        return;
-    }
-
-    if (isBackendConnected) {
-        try {
-            const url = `${API_BASE}/students?branch=${encodeURIComponent(branch)}&year=${year}&rollNo=${rollNo}`;
-            const res = await fetch(url, {
-                method: "DELETE"
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                await syncFromBackend();
-                showToast(data.message || `Student ${student.name} removed.`, "success");
-            } else {
-                showToast(data.message || "Failed to delete student!", "error");
-            }
-        } catch (err) {
-            showToast("Server error: " + err.message, "error");
+    try {
+        const url = `${API_BASE}/students?branch=${encodeURIComponent(branch)}&year=${year}&rollNo=${rollNo}`;
+        const res = await fetch(url, {
+            method: "DELETE"
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            loadedTabs.dashboard = false;
+            loadedTabs.students = false;
+            await refreshActiveTab();
+            showToast(data.message || `Student removed.`, "success");
+        } else {
+            showToast(data.message || "Failed to delete student!", "error");
         }
-        return;
+    } catch (err) {
+        showToast("Server error: " + err.message, "error");
     }
+}
 
-    students = students.filter(s => !(s.branch === branch && s.year === year && s.rollNo === rollNo));
-    renderAll();
-    showToast(`Student ${student.name} removed.`, "success");
+// Helper: refresh data for whatever tab user is currently viewing
+async function refreshActiveTab() {
+    if (currentActiveTab === 'dashboard') {
+        await loadDashboardData(true);
+    } else if (currentActiveTab === 'books') {
+        await loadBooksData(true);
+    } else if (currentActiveTab === 'students') {
+        await loadStudentsData(true);
+    } else if (currentActiveTab === 'history') {
+        await loadHistoryData(true);
+    } else if (currentActiveTab === 'issue-return') {
+        await loadDashboardData(true);
+    }
 }
 
 // ==========================================================

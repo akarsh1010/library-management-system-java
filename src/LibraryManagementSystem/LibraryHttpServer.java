@@ -38,6 +38,7 @@ public class LibraryHttpServer {
         server.setExecutor(Executors.newFixedThreadPool(10));
 
         // REST API Contexts
+        server.createContext("/api/dashboard", new DashboardHandler(bookService, studentService));
         server.createContext("/api/books", new BooksHandler(bookService));
         server.createContext("/api/students", new StudentsHandler(studentService));
         server.createContext("/api/issue", new IssueHandler(bookService, studentService));
@@ -170,7 +171,78 @@ public class LibraryHttpServer {
     }
 
     // ==========================================================
-    // 2. Health Endpoint
+    // 2. Dashboard Endpoint (Lightweight On-Demand Stats & Active Loans)
+    // ==========================================================
+    static class DashboardHandler implements HttpHandler {
+        private final BookService bookService;
+        private final StudentService studentService;
+
+        public DashboardHandler(BookService bookService, StudentService studentService) {
+            this.bookService = bookService;
+            this.studentService = studentService;
+        }
+
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            ArrayList<Book> allBooks = bookService.getAllBooks();
+            ArrayList<Book> borrowedBooks = new ArrayList<>();
+            for (Book b : allBooks) {
+                if (b.isIssued()) {
+                    borrowedBooks.add(b);
+                }
+            }
+
+            int totalBooks = allBooks.size();
+            int totalIssued = borrowedBooks.size();
+            int available = totalBooks - totalIssued;
+            int totalStudents = studentService.getAllStudents().size();
+
+            StringBuilder json = new StringBuilder("{");
+            json.append("\"totalBooks\":").append(totalBooks).append(",")
+                .append("\"availableBooks\":").append(available).append(",")
+                .append("\"issuedBooks\":").append(totalIssued).append(",")
+                .append("\"totalStudents\":").append(totalStudents).append(",")
+                .append("\"borrowedBooks\":[");
+
+            for (int i = 0; i < borrowedBooks.size(); i++) {
+                Book b = borrowedBooks.get(i);
+                json.append("{")
+                        .append("\"id\":").append(b.getBookId()).append(",")
+                        .append("\"title\":\"").append(escapeJson(b.getTitle())).append("\",")
+                        .append("\"author\":\"").append(escapeJson(b.getAuthor())).append("\",")
+                        .append("\"isIssued\":true,");
+
+                if (b.getIssuedTo() != null) {
+                    Student s = b.getIssuedTo();
+                    json.append("\"issuedTo\":{")
+                            .append("\"name\":\"").append(escapeJson(s.getName())).append("\",")
+                            .append("\"branch\":\"").append(escapeJson(s.getBranch())).append("\",")
+                            .append("\"year\":").append(s.getYear()).append(",")
+                            .append("\"rollNo\":").append(s.getRollNo()).append(",")
+                            .append("\"phone\":\"").append(escapeJson(s.getPhoneNumber())).append("\"")
+                            .append("},");
+                } else {
+                    json.append("\"issuedTo\":null,");
+                }
+
+                json.append("\"issueDate\":\"").append(escapeJson(b.getIssueDate() != null ? b.getIssueDate() : "")).append("\"");
+                json.append("}");
+                if (i < borrowedBooks.size() - 1) json.append(",");
+            }
+
+            json.append("]}");
+            sendJsonResponse(exchange, 200, json.toString());
+        }
+    }
+
+    // ==========================================================
+    // 3. Health Endpoint
     // ==========================================================
     static class HealthHandler implements HttpHandler {
         private final BookService bookService;
